@@ -20,15 +20,15 @@ class DBClient {
   }
 
   isAlive() {
-	  return !!this.db;
+    return !!this.db;
   }
 
   async nbUsers() {
-	  return this.users.countDocuments();
+    return this.users.countDocuments();
   }
 
   async nbFiles() {
-	  return this.files.countDocuments();
+    return this.files.countDocuments();
   }
 
   async getUser(query) {
