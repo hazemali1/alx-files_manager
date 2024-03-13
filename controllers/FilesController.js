@@ -103,7 +103,7 @@ class FilesController {
     const keyID = await redisClient.get(`auth_${token}`);
     if (!keyID) { return response.status(401).json({ error: 'Unauthorized' }); }
     const parentId = request.query.parentId || '0';
-    const pagination = request.query.page || 0;
+    const pagination = parseInt(request.query.page, 10) || 0;
     const user = await dbClient.db.collection('users').findOne({ _id: ObjectID(keyID) });
     if (!user) response.status(401).json({ error: 'Unauthorized' });
 
