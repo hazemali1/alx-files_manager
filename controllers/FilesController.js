@@ -155,84 +155,99 @@ class FilesController {
 
     return response.send(filesArray);
   }
-
+  // PUT /files/:id/publish
+  // Set isPublic to true on the file document based on the ID
   static async putPublish(request, response) {
-    const { error, code, updatedFile } = await fileUtils.publishUnpublish(
-      request,
-      true,
+    // Retrieve the user based on the token
+    const token = request.headers['x-token'];
+    if (!token) { return response.status(401).json({ error: 'Unauthorized' }); }
+    const keyID = await redisClient.get(`auth_${token}`);
+    if (!keyID) { return response.status(401).json({ error: 'Unauthorized' }); }
+    const user = await dbClient.db.collection('users').findOne({ _id: ObjectID(keyID) });
+    if (!user) { return response.status(401).json({ error: 'Unauthorized' }); }
+
+    const idFile = request.params.id || '';
+    const fileDocument = await dbClient.db
+        .collection('files')
+        .findOne({ _id: ObjectID(idFile), userId: user._id });
+    if (!fileDocument) { return response.status(404).json({ error: 'Not found' }); }
+
+    // Update the value of isPublic to true
+    await dbClient.db.collection('files').updateOne(
+        { _id: ObjectID(idFile) },
+        { $set: { isPublic: true } }
     );
 
-    if (error) return response.status(code).send({ error });
+    // Return the file document with a status code 200
+    return response.status(200).json(fileDocument);
+}
 
-    return response.status(code).send(updatedFile);
-  }
-
-  /**
-   * Should set isPublic to false on the file document based on the ID
-   *
-   * Retrieve the user based on the token:
-   * If not found, return an error Unauthorized with a status code 401
-   * If no file document is linked to the user and the ID passed as parameter,
-   * return an error Not found with a status code 404
-   * Otherwise:
-   * Update the value of isPublic to false
-   * And return the file document with a status code 200
-   */
+  // PUT /files/:id/unpublish
+  // Set isPublic to false on the file document based on the ID
   static async putUnpublish(request, response) {
-    const { error, code, updatedFile } = await fileUtils.publishUnpublish(
-      request,
-      false,
+    // Retrieve the user based on the token
+    const token = request.headers['x-token'];
+    if (!token) { return response.status(401).json({ error: 'Unauthorized' }); }
+    const keyID = await redisClient.get(`auth_${token}`);
+    if (!keyID) { return response.status(401).json({ error: 'Unauthorized' }); }
+    const user = await dbClient.db.collection('users').findOne({ _id: ObjectID(keyID) });
+    if (!user) { return response.status(401).json({ error: 'Unauthorized' }); }
+
+    const idFile = request.params.id || '';
+    const fileDocument = await dbClient.db
+        .collection('files')
+        .findOne({ _id: ObjectID(idFile), userId: user._id });
+    if (!fileDocument) { return response.status(404).json({ error: 'Not found' }); }
+
+    // Update the value of isPublic to false
+    await dbClient.db.collection('files').updateOne(
+        { _id: ObjectID(idFile) },
+        { $set: { isPublic: false } }
     );
 
-    if (error) return response.status(code).send({ error });
-
-    return response.status(code).send(updatedFile);
+    // Return the file document with a status code 200
+    return response.status(200).json(fileDocument);
   }
 
-  /**
-   * Should return the content of the file document based on the ID
-   *
-   * If no file document is linked to the ID passed as parameter, return an error
-   * Not found with a status code 404
-   * If the file document (folder or file) is not public (isPublic: false) and no user
-   * authenticate or not the owner of the
-   * file, return an error Not found with a status code 404
-   * If the type of the file document is folder, return an error A folder doesn't have content
-   * with a status code 400
-   * If the file is not locally present, return an error Not found with a status code 404
-   * Otherwise:
-   * By using the module mime-types, get the MIME-type based on the name of the file
-   * Return the content of the file with the correct MIME-type
-   */
+  // GET /files/:id/data
+  // Return the content of the file document based on the ID
   static async getFile(request, response) {
-    const { userId } = await userUtils.getUserIdAndKey(request);
-    const { id: fileId } = request.params;
-    const size = request.query.size || 0;
+    // Retrieve the user based on the token
+    const token = request.headers['x-token'];
+    if (!token) { return response.status(401).json({ error: 'Unauthorized' }); }
+    const keyID = await redisClient.get(`auth_${token}`);
+    if (!keyID) { return response.status(401).json({ error: 'Unauthorized' }); }
+    const user = await dbClient.db.collection('users').findOne({ _id: ObjectID(keyID) });
+    if (!user) { return response.status(401).json({ error: 'Unauthorized' }); }
 
-    // Mongo Condition for Id
-    if (!basicUtils.isValidId(fileId)) { return response.status(404).send({ error: 'Not found' }); }
+    const idFile = request.params.id || '';
+    const fileDocument = await dbClient.db
+        .collection('files')
+        .findOne({ _id: ObjectID(idFile) });
+    if (!fileDocument) { return response.status(404).json({ error: 'Not found' }); }
 
-    const file = await fileUtils.getFile({
-      _id: ObjectId(fileId),
-    });
-
-    if (!file || !fileUtils.isOwnerAndPublic(file, userId)) { return response.status(404).send({ error: 'Not found' }); }
-
-    if (file.type === 'folder') {
-      return response
-        .status(400)
-        .send({ error: "A folder doesn't have content" });
+    // Check if the file is public or if the user is the owner
+    if (!fileDocument.isPublic && (!user || fileDocument.userId.toString() !== user._id.toString())) {
+        return response.status(404).json({ error: 'Not found' });
     }
 
-    const { error, code, data } = await fileUtils.getFileData(file, size);
+    // Check if the file is a folder
+    if (fileDocument.type === 'folder') {
+        return response.status(400).json({ error: "A folder doesn't have content" });
+    }
 
-    if (error) return response.status(code).send({ error });
+    // Check if the file is locally present
+    const localPath = fileDocument.localPath;
+    if (!fs.existsSync(localPath)) {
+        return response.status(404).json({ error: 'Not found' });
+    }
 
-    const mimeType = mime.contentType(file.name);
+    // Get MIME-type based on the file name
+    const mimeType = mime.lookup(fileDocument.name);
 
+    // Return the content of the file with the correct MIME-type
     response.setHeader('Content-Type', mimeType);
-
-    return response.status(200).send(data);
+    fs.createReadStream(localPath).pipe(response);
   }
 
 }
