@@ -155,6 +155,7 @@ class FilesController {
 
     return response.send(filesArray);
   }
+
   // PUT /files/:id/publish
   // Set isPublic to true on the file document based on the ID
   static async putPublish(request, response) {
@@ -168,19 +169,19 @@ class FilesController {
 
     const idFile = request.params.id || '';
     const fileDocument = await dbClient.db
-        .collection('files')
-        .findOne({ _id: ObjectID(idFile), userId: user._id });
+      .collection('files')
+      .findOne({ _id: ObjectID(idFile), userId: user._id });
     if (!fileDocument) { return response.status(404).json({ error: 'Not found' }); }
 
     // Update the value of isPublic to true
     await dbClient.db.collection('files').updateOne(
-        { _id: ObjectID(idFile) },
-        { $set: { isPublic: true } }
+      { _id: ObjectID(idFile) },
+      { $set: { isPublic: true } },
     );
 
     // Return the file document with a status code 200
     return response.status(200).json(fileDocument);
-}
+  }
 
   // PUT /files/:id/unpublish
   // Set isPublic to false on the file document based on the ID
@@ -195,14 +196,14 @@ class FilesController {
 
     const idFile = request.params.id || '';
     const fileDocument = await dbClient.db
-        .collection('files')
-        .findOne({ _id: ObjectID(idFile), userId: user._id });
+      .collection('files')
+      .findOne({ _id: ObjectID(idFile), userId: user._id });
     if (!fileDocument) { return response.status(404).json({ error: 'Not found' }); }
 
     // Update the value of isPublic to false
     await dbClient.db.collection('files').updateOne(
-        { _id: ObjectID(idFile) },
-        { $set: { isPublic: false } }
+      { _id: ObjectID(idFile) },
+      { $set: { isPublic: false } },
     );
 
     // Return the file document with a status code 200
@@ -222,34 +223,41 @@ class FilesController {
 
     const idFile = request.params.id || '';
     const fileDocument = await dbClient.db
-        .collection('files')
-        .findOne({ _id: ObjectID(idFile) });
+      .collection('files')
+      .findOne({ _id: ObjectID(idFile) });
     if (!fileDocument) { return response.status(404).json({ error: 'Not found' }); }
 
     // Check if the file is public or if the user is the owner
-    if (!fileDocument.isPublic && (!user || fileDocument.userId.toString() !== user._id.toString())) {
-        return response.status(404).json({ error: 'Not found' });
+    if (
+      !fileDocument.isPublic && (!user || fileDocument.userId.toString() !== user._id.toString())
+    ) {
+      return response.status(404).json({ error: 'Not found' });
     }
 
     // Check if the file is a folder
     if (fileDocument.type === 'folder') {
-        return response.status(400).json({ error: "A folder doesn't have content" });
+      return response.status(400).json({ error: "A folder doesn't have content" });
     }
 
     // Check if the file is locally present
-    const localPath = fileDocument.localPath;
+    const { localPath } = fileDocument;
     if (!fs.existsSync(localPath)) {
-        return response.status(404).json({ error: 'Not found' });
+      return response.status(404).json({ error: 'Not found' });
     }
 
     // Get MIME-type based on the file name
-    const mimeType = mime.lookup(fileDocument.name);
+    // const mimeType = mime.lookup(fileDocument.name);
 
     // Return the content of the file with the correct MIME-type
-    response.setHeader('Content-Type', mimeType);
+    // response.setHeader('Content-Type', mimeType);
     fs.createReadStream(localPath).pipe(response);
+    try {
+      return response.status(404).json({ error: 'Not found' });
+    } catch (error) {
+      console.error(error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
   }
-
 }
 
 module.exports = FilesController;
