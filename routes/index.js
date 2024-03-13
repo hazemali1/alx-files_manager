@@ -17,4 +17,29 @@ router.post('/files', (req, res) => {
     FilesController.postUpload(req, res);
   });
 
+router.get('/files/:id', (req, res) => {
+    FilesController.getShow(req, res);
+  });
+
+  router.get('/files', (req, res) => {
+    FilesController.getIndex(req, res);
+  });
+
+
+  router.put('/files/:id/publish', (req, res) => {
+    FilesController.putPublish(req, res);
+  });
+
+
+  router.put('/files/:id/unpublish', (req, res) => {
+    FilesController.putUnpublish(req, res);
+  });
+
+
+  router.get('/files/:id/data', (req, res) => {
+    FilesController.getFile(req, res);
+  });
+}
+
+
 module.exports = router;
