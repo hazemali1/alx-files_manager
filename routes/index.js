@@ -12,34 +12,8 @@ router.post('/users', UsersController.postNew);
 router.get('/connect', AuthController.getConnect);
 router.get('/disconnect', AuthController.getDisconnect);
 router.get('/users/me', UsersController.getMe);
-
-router.post('/files', (req, res) => {
-    FilesController.postUpload(req, res);
-  });
-
-router.get('/files/:id', (req, res) => {
-    FilesController.getShow(req, res);
-  });
-
-  router.get('/files', (req, res) => {
-    FilesController.getIndex(req, res);
-  });
-
-
-  router.put('/files/:id/publish', (req, res) => {
-    FilesController.putPublish(req, res);
-  });
-
-
-  router.put('/files/:id/unpublish', (req, res) => {
-    FilesController.putUnpublish(req, res);
-  });
-
-
-  router.get('/files/:id/data', (req, res) => {
-    FilesController.getFile(req, res);
-  });
-}
-
+router.post('/files', FilesController.postUpload);
+router.get('/files/:id', FilesController.getShow);
+router.get('/files', FilesController.getIndex);
 
 module.exports = router;
